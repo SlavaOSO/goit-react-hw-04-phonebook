@@ -1,4 +1,4 @@
-import React from "react";
+import { useState, useEffect, useMemo } from "react";
 import { nanoid } from 'nanoid';
 import { Phonebook } from "components/PhoneBook/PhoneBook";
 import { ContactsList } from "components/Contacts/Contacts";
@@ -6,94 +6,75 @@ import { Filter } from "components/Filter/Filter";
 import { Report } from 'notiflix/build/notiflix-report-aio';
 import { Notify } from 'notiflix/build/notiflix-notify-aio';
 
-export class ContactBook extends React.Component {
+export const ContactBook = () => {
+    const [contacts, setContacts] = useState(() => JSON.parse(window.localStorage.getItem('contacts')) ?? []);
+    const [name, setName] = useState('');
+    const [number, setNumber] = useState('');
+    const [filter, setFilter] = useState('');
 
-state = {
-    contacts: [],
-    name: '',
-    number: '',
-    filter: ''
-    }
-    
-    componentDidMount() {
-        if (JSON.parse(localStorage.getItem('contacts'))) {
-            this.setState({ contacts: JSON.parse(localStorage.getItem('contacts'))})
+    useEffect(() => {
+        window.localStorage.setItem('contacts', JSON.stringify(contacts))
+    });
+
+
+    const getValueInput = (e) => {
+        const { type, value } = e.target;
+        switch (type) {
+            case 'text':
+                setName(value);
+                break;
+            case 'tel':
+                setNumber(value);
+                break;
+            default:
+                return;
         }
-    }
-
-    componentDidUpdate(prevProps, prevState) {
-        if (this.state.contacts !== prevState.contacts) {
-            localStorage.setItem('contacts', JSON.stringify(this.state.contacts))
-        }
-    }
-
-    getValueInput = (e) => {
-        const target = e.target;
-        const value = target.type === 'text' || target.type === 'tel' ?  target.value: " ";
-        const elem = target.name;
-        console.log(elem);
-        this.setState({
-            [elem]: value
-        
-        });
     }; 
+    
 
-    setContactsName = (e) => {
+    const setContactsName = (e) => {
         e.preventDefault();
-        this.setState({number: '', name: ''});      
-        this.chekingContacts(e);
+        setNumber('');
+        setName('');
+        
+        chekingContacts(e);
     };
     
-    changeFilter = (e) => { this.setState({ filter: e.currentTarget.value, }) };
+    const changeFilter = (e) => { setFilter(e.currentTarget.value) };
 
-    contactFiltering = () => {
-        const { filter, contacts } = this.state;
+    const contactFiltering = useMemo(() => {
         const normalizeFilter = filter.toLowerCase();
         return contacts.filter(contact => contact.name.toLowerCase().includes(normalizeFilter)
             || contact.number.toLowerCase().includes(normalizeFilter));
-    }
+    },[contacts,filter])
 
-    deleteContact = (id) => {
+    const deleteContact = (id) => {
         
-        const { contacts } = this.state;
         contacts.splice(id, 1);
-        this.setState({
-            contacts,
-        });
-        console.log(this.state.contacts)
+        setContacts([...contacts]);
+        console.log(contacts)
         Notify.success('The contact has been successfully deleted.');
-        localStorage.setItem('contacts', JSON.stringify(this.state.contacts));
+        localStorage.setItem('contacts', JSON.stringify(contacts));
     };
    
-    chekingContacts = (e) => {
-        const { contacts, name, } = this.state;
+    const chekingContacts = () => {
         const chek = contacts.find((contact) =>contact.name === name);
 
             if (chek) {
                 Report.failure('Error', 'This name is already in your contact list, enter another name, and try again.', 'OK');
             }         
             else {
-                this.setState({ contacts: this.state.contacts.concat({ id: nanoid(), name: this.state.name, number: this.state.number }) });
+                setContacts(contacts.concat({ id: nanoid(), name: name, number: number }) );
                 return Notify.success('Contact has been successfully added.');
             }
         };
-     
 
-        render() {
-            const name = this.state.name;
-            const tel = this.state.number;
-            const filter = this.state.filter;
-            const contacts = this.contactFiltering();
-            const remove = this.deleteContact;
-            
-        return (< section >
-            {<Phonebook input={this.getValueInput} val={{ name: name, tel: tel }} btn={this.setContactsName} />}
+
+    return (< section >
+            {<Phonebook input={getValueInput} val={{ name: name, tel: number }} btn={setContactsName} />}
             <div> <h2>Contacts</h2>
-                {<Filter changes={this.changeFilter}  filter={filter}/> }
-                {<ContactsList contacts={contacts} away={remove} />}
+                {<Filter changes={changeFilter}  filter={filter}/> }
+                {<ContactsList contacts={contactFiltering} away={deleteContact} />}
             </div>
         </section >)
-     
-
-    }
 }
